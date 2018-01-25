@@ -2,6 +2,11 @@
 var bcrypt = require('bcrypt-nodejs')
 var User = require('../models/user');
 var jwt = require('../services/jwt');
+var mogoosePaginate = require('mongoose-pagination');
+
+function pruebas(req, res){
+  return res.status(200).send({message: 'Controlador de prueba'});
+}
 
 function saveUser(req, res) {
   var params = req.body;
@@ -13,6 +18,7 @@ function saveUser(req, res) {
     user.name = params.name;
     user.surname = params.surname;
     user.email = params.email;
+    user.nick = params.nick;
     user.image = null;
     user.role = 'ROLE_USER';
     //comprobar usuarios duplicados
@@ -74,7 +80,63 @@ function login(req, res) {
   });
 }
 
+function getUser(req, res){
+  var userId = req.params.id;
+  /*if(!params.nick){
+    return res.status(403).send({message: 'No se ha indicado el campo nick'});
+  }*/
+  User.findById(userId, (err, user) =>{
+    if(err) return res.status(500).send({message: 'Error al recuperar el usuario'});
+    if(user) return res.status(200).send(user);
+    else{
+      return res.status(404).send({message: 'Usuario no existe'});
+    }
+  });
+
+
+}
+
+function getUsers(req, res){
+  var identity_user_id = req.user.sub;
+var page = 1;
+  if(req.params.page){
+    page = req.params.page;
+  }
+  var itemsPerPage = 5;
+  User.find().sort('_id').paginate(page, itemsPerPage, (err, users, total) =>{
+    if(err) return res.status(500).send({message: 'Error en la peticion'});
+    if(users) return res.status(200).send({
+      users,
+      total,
+      pages: Math.ceil(total/itemsPerPage)
+    });
+    else{
+      return res.status(404).send({message: 'No hay usuarios disponible'});
+    }
+  })
+}
+
+function updateUser(req, res){
+  var idUser = req.params.id;
+  var params = req.body;
+  delete params.password;
+  if(idUser != req.user.sub) return res.status(500).send({message: 'No tienes permiso para modificar este usario'});
+  User.findByIdAndUpdate(idUser, params, {new:true}, (err, userUpdate) =>{
+    if(err) return res.status(500).send({message: 'Error al actualizar la informacion del usuario'});
+    if(userUpdate) res.status(200).send({userUpdate});
+    else{
+      return res.status(404).send({message: 'No hay usuario disponible'});
+    }
+  })
+
+
+}
+
 module.exports = {
+  pruebas,
   saveUser,
+  getUser,
+  getUsers,
+  updateUser,
   login
 };
